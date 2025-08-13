@@ -1,0 +1,29 @@
+# config.yaml
+
+# 1. 数据配置
+data:
+  num_nodes: 207           # 交通网络中的传感器数量 (N)
+  num_features: 3          # 输入特征的数量 (F)，例如：流量、速度、占用率
+  # 历史时间窗口长度 (输入)
+  Th: 12                   # 近期组件的输入长度 (例如，12个5分钟步长 = 1小时)
+  Td: 12                   # 日周期组件的输入长度
+  Tw: 12                   # 周周期组件的输入长度
+  # 预测时间窗口长度 (输出)
+  Tp: 12                   # 预测未来12个步长
+
+# 2. 模型配置
+model:
+  num_st_blocks: 2         # 每个分支中 ST_Block 的数量
+  K: 3                     # 图卷积中切比雪夫多项式的阶数
+
+# 3. 训练配置
+training:
+  device: "cuda"           # 使用 "cuda" 或 "cpu"
+  batch_size: 16
+  epochs: 100
+  learning_rate: 0.001
+
+# 4. 检查点配置
+checkpoint:
+  path: "checkpoints/"
+  filename: "last_checkpoint.pth"
