@@ -50,7 +50,7 @@ ASTGCN_PROJECT/
 
 ```bash
 git clone https://github.com/17wuyou/astgcn_project.git
-cd ASTGCN_PROJECT
+cd astgcn_project
 ```
 
 #### 2. 安装依赖
