@@ -49,7 +49,7 @@ ASTGCN_PROJECT/
 #### 1. 克隆项目
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/17wuyou/astgcn_project.git
 cd ASTGCN_PROJECT
 ```
 
