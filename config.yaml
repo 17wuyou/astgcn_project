@@ -2,17 +2,27 @@
 
 # 1. DATASET CONFIGURATION
 dataset:
-  mode: "real"             # Switch between "dummy" and "real"
+  mode: "metr-la"             # Switch between "dummy", "semi-real", and "metr-la"
   filepath: "data/traffic_data.npz"
+  
   # Configuration for generate_dataset.py
-  generation:
-    num_days: 90           # Generate 3 months of data
-    q: 288                 # Samples per day (24 * 60 / 5 minutes = 288)
+  semi-real:
+    num_days: 90
+    q: 288
+    
+  # Configuration for METR-LA dataset
+  metr-la:
+    data_path: "raw_data/metr-la.h5"
+    adj_path: "raw_data/adj_mx.pkl"
+    # Split ratios
+    train_split: 0.7
+    val_split: 0.1
+    # Test split is the remainder (0.2)
 
-# 2. DATA CONFIGURATION (used by the model)
+# 2. DATA CONFIGURATION (must match METR-LA)
 data:
-  num_nodes: 207
-  num_features: 3
+  num_nodes: 207           # METR-LA has 207 sensors
+  num_features: 3          # We will use speed and expand it to 3 features
   Th: 12
   Td: 12
   Tw: 12
@@ -33,4 +43,4 @@ training:
 # 5. CHECKPOINT CONFIGURATION
 checkpoint:
   path: "checkpoints/"
-  filename: "last_checkpoint.pth"
+  filename: "best_model.pth" # Save the best model based on validation loss
