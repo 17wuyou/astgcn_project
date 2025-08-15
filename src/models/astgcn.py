@@ -1,71 +1,75 @@
 # src/models/astgcn.py
+# --- FINAL CORRECTED VERSION ---
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as F  # Keep this import for clarity
 
 class SpatioTemporal_Attention(nn.Module):
-    def __init__(self, num_nodes, num_features, num_timesteps):
+    def __init__(self, num_nodes, num_features, num_timesteps, hidden_dim=64):
         super(SpatioTemporal_Attention, self).__init__()
-        self.W1 = nn.Parameter(torch.randn(num_timesteps))
-        self.W2 = nn.Parameter(torch.randn(num_features, num_timesteps))
-        self.W3 = nn.Parameter(torch.randn(num_features))
-        self.Vs = nn.Parameter(torch.randn(num_nodes, num_nodes))
-        self.bs = nn.Parameter(torch.randn(1, num_nodes, num_nodes))
-        
-        self.U1 = nn.Parameter(torch.randn(num_nodes))
-        self.U2 = nn.Parameter(torch.randn(num_features, num_nodes))
-        self.U3 = nn.Parameter(torch.randn(num_features))
-        self.Ve = nn.Parameter(torch.randn(num_timesteps, num_timesteps))
-        self.be = nn.Parameter(torch.randn(1, num_timesteps, num_timesteps))
+        self.query_proj_s = nn.Linear(num_timesteps * num_features, hidden_dim)
+        self.key_proj_s = nn.Linear(num_timesteps * num_features, hidden_dim)
+        self.query_proj_t = nn.Linear(num_nodes * num_features, hidden_dim)
+        self.key_proj_t = nn.Linear(num_nodes * num_features, hidden_dim)
+        self.hidden_dim = hidden_dim
 
     def forward(self, x):
-        # x shape: (B, T, N, F)
-        lhs = torch.einsum('btf,f->bt', x, self.W3) @ self.W1 # (B, N)
-        rhs = torch.einsum('bf,f->b', self.W2, self.W3)
-        S = torch.einsum('bn, b, nm->bnm', lhs, rhs, self.Vs) + self.bs
-        S_prime = F.softmax(F.relu(S), dim=-1)
+        B, T, N, C = x.shape
+        x_spatial = x.permute(0, 2, 1, 3).reshape(B, N, T * C)
+        query_s = self.query_proj_s(x_spatial)
+        key_s = self.key_proj_s(x_spatial)
+        S = torch.matmul(query_s, key_s.transpose(-1, -2)) / (self.hidden_dim ** 0.5)
+        # Use explicit functional call to avoid conflicts
+        S_prime = torch.nn.functional.softmax(S, dim=-1)
 
-        lhs = torch.einsum('bnf,f->bn', x, self.U3) @ self.U1
-        rhs = torch.einsum('bf,f->b', self.U2, self.U3)
-        E = torch.einsum('bt, b, ts->bts', lhs, rhs, self.Ve) + self.be
-        E_prime = F.softmax(F.relu(E), dim=-1)
-
-        x_weighted_by_time = torch.einsum('btnf,bts->bsnf', x, E_prime)
+        x_temporal = x.reshape(B, T, N * C)
+        query_t = self.query_proj_t(x_temporal)
+        key_t = self.key_proj_t(x_temporal)
+        E = torch.matmul(query_t, key_t.transpose(-1, -2)) / (self.hidden_dim ** 0.5)
+        # Use explicit functional call to avoid conflicts
+        E_prime = torch.nn.functional.softmax(E, dim=-1)
+        
+        x_weighted_by_time = torch.matmul(E_prime, x_temporal).reshape(B, T, N, C)
         return x_weighted_by_time, S_prime
 
 class SpatioTemporal_Convolution(nn.Module):
     def __init__(self, in_channels, out_channels, K, num_nodes):
         super(SpatioTemporal_Convolution, self).__init__()
         self.K = K
-        self.in_channels = in_channels
-        self.out_channels = out_channels
         self.theta = nn.Parameter(torch.randn(K, in_channels, out_channels))
-        self.temporal_conv = nn.Conv2d(out_channels, out_channels, kernel_size=(1, 3), padding=(0, 1))
+        self.temporal_conv = nn.Conv2d(out_channels, out_channels, kernel_size=(3, 1), padding=(1, 0))
         self.num_nodes = num_nodes
     
     def forward(self, x, adj, spatial_attention):
-        # x shape: (B, T, N, C_in)
-        batch_size = x.shape[0]
-        L_tilde = 2 * adj / torch.lambda_max(adj) - torch.eye(self.num_nodes, device=x.device)
+        B, T, N, C_in = x.shape
+        
+        D = torch.diag(torch.sum(adj, dim=1))
+        L = D - adj
+        lambda_max = torch.linalg.eigvalsh(L).max()
+        L_tilde = (2 * L / lambda_max) - torch.eye(self.num_nodes, device=x.device)
+
         cheb_polynomials = [torch.eye(self.num_nodes, device=x.device), L_tilde]
         for i in range(2, self.K):
             cheb_polynomials.append(2 * L_tilde @ cheb_polynomials[-1] - cheb_polynomials[-2])
         
-        gcn_output = torch.zeros(batch_size, x.shape[1], self.num_nodes, self.out_channels, device=x.device)
-        for t in range(x.shape[1]):
+        gcn_output = torch.zeros(B, T, N, self.theta.shape[2], device=x.device)
+        for t in range(T):
             x_t = x[:, t, :, :]
-            graph_conv_sum = torch.zeros(batch_size, self.num_nodes, self.out_channels, device=x.device)
+            graph_conv_sum = torch.zeros(B, N, self.theta.shape[2], device=x.device)
             for k in range(self.K):
                 T_k = cheb_polynomials[k]
                 T_k_with_at = T_k * spatial_attention
                 rhs = T_k_with_at @ x_t
                 graph_conv_sum += rhs @ self.theta[k]
-            gcn_output[:,t,:,:] = graph_conv_sum
+            gcn_output[:, t, :, :] = graph_conv_sum
         
-        x_graph_convolved = F.relu(gcn_output)
+        # Use explicit functional call to avoid conflicts
+        x_graph_convolved = torch.nn.functional.relu(gcn_output)
+        
         x_time_convolved = self.temporal_conv(x_graph_convolved.permute(0, 3, 2, 1)).permute(0, 3, 2, 1)
-        return F.relu(x_time_convolved)
+        # Use explicit functional call to avoid conflicts
+        return torch.nn.functional.relu(x_time_convolved)
 
 class ST_Block(nn.Module):
     def __init__(self, num_nodes, num_features, num_timesteps, K):
@@ -75,10 +79,11 @@ class ST_Block(nn.Module):
         self.residual_conv = nn.Conv2d(num_features, num_features, kernel_size=(1, 1))
 
     def forward(self, x, adj):
-        residual = self.residual_conv(x.permute(0,3,2,1)).permute(0,3,2,1)
+        residual = self.residual_conv(x.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
         x_att, spatial_att = self.attention(x)
         x_conv = self.convolution(x_att, adj, spatial_att)
-        return F.relu(x_conv + residual)
+        # Use explicit functional call to avoid conflicts
+        return torch.nn.functional.relu(x_conv + residual)
 
 class ASTGCN_Sub_Component(nn.Module):
     def __init__(self, num_nodes, num_features, num_timesteps_input, num_timesteps_output, num_st_blocks, K):
@@ -91,8 +96,10 @@ class ASTGCN_Sub_Component(nn.Module):
     def forward(self, x, adj):
         for block in self.blocks:
             x = block(x, adj)
-        B, T, N, F = x.shape
-        x_reshaped = x.reshape(B, N, T * F)
+        
+        # *** FIX: Changed F to C to avoid variable shadowing ***
+        B, T, N, C = x.shape
+        x_reshaped = x.reshape(B, N, T * C)
         y_hat = self.output_layer(x_reshaped)
         return y_hat
 
