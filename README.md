@@ -67,8 +67,8 @@ pip install -r requirements.txt
 
 -   在项目根目录下创建一个名为 `raw_data` 的文件夹。
 -   从以下链接下载 `metr-la.h5` 和 `adj_mx.pkl` 文件，并将它们放入 `raw_data` 文件夹中。
-    -   **交通数据**: [metr-la.h5](https://github.com/liyaguang/DCRNN/raw/master/data/metr-la.h5)
-    -   **邻接矩阵**: [adj_mx.pkl](https://github.com/liyaguang/DCRNN/raw/master/data/adj_mx.pkl)
+    -   **交通数据**: [metr-la.h5](https://drive.google.com/file/d/1kctatc48OziemCJe-S6rOZFMgEvcdQhU/view?usp=drive_link)
+    -   **邻接矩阵**: [adj_mx.pkl](https://drive.google.com/file/d/1S2x9Lg6nCuhIiH0RAhP_krSI6q9RHn3X/view?usp=drive_link)
 
 ## 工作流与使用指南
 
