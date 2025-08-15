@@ -1,4 +1,5 @@
 # generate_dataset.py
+# --- CORRECTED VERSION ---
 
 import numpy as np
 import yaml
@@ -8,7 +9,8 @@ def generate_semi_real_data(config):
     """
     Generates a semi-realistic traffic dataset with daily and weekly patterns.
     """
-    gen_config = config['dataset']['generation']
+    # --- FIX: Read from the correct config key 'semi-real' instead of 'generation' ---
+    gen_config = config['dataset']['semi-real'] 
     data_config = config['data']
     
     num_days = gen_config['num_days']
@@ -78,6 +80,7 @@ def main():
         
     data, adj = generate_semi_real_data(config)
     
+    # We will save to the main filepath defined in the config
     filepath = config['dataset']['filepath']
     dir_path = os.path.dirname(filepath)
     if not os.path.exists(dir_path):
