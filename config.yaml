@@ -1,29 +1,36 @@
 # config.yaml
 
-# 1. 数据配置
+# 1. DATASET CONFIGURATION
+dataset:
+  mode: "real"             # Switch between "dummy" and "real"
+  filepath: "data/traffic_data.npz"
+  # Configuration for generate_dataset.py
+  generation:
+    num_days: 90           # Generate 3 months of data
+    q: 288                 # Samples per day (24 * 60 / 5 minutes = 288)
+
+# 2. DATA CONFIGURATION (used by the model)
 data:
-  num_nodes: 207           # 交通网络中的传感器数量 (N)
-  num_features: 3          # 输入特征的数量 (F)，例如：流量、速度、占用率
-  # 历史时间窗口长度 (输入)
-  Th: 12                   # 近期组件的输入长度 (例如，12个5分钟步长 = 1小时)
-  Td: 12                   # 日周期组件的输入长度
-  Tw: 12                   # 周周期组件的输入长度
-  # 预测时间窗口长度 (输出)
-  Tp: 12                   # 预测未来12个步长
+  num_nodes: 207
+  num_features: 3
+  Th: 12
+  Td: 12
+  Tw: 12
+  Tp: 12
 
-# 2. 模型配置
+# 3. MODEL CONFIGURATION
 model:
-  num_st_blocks: 2         # 每个分支中 ST_Block 的数量
-  K: 3                     # 图卷积中切比雪夫多项式的阶数
+  num_st_blocks: 2
+  K: 3
 
-# 3. 训练配置
+# 4. TRAINING CONFIGURATION
 training:
-  device: "cuda"           # 使用 "cuda" 或 "cpu"
+  device: "cuda"
   batch_size: 16
   epochs: 100
   learning_rate: 0.001
 
-# 4. 检查点配置
+# 5. CHECKPOINT CONFIGURATION
 checkpoint:
   path: "checkpoints/"
   filename: "last_checkpoint.pth"
